@@ -1,0 +1,60 @@
+name: Update daily Bitcoin prices
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('daily_prices/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r daily_prices/requirements.txt
+    
+    - name: Run Bitcoin price updater
+      env:
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      run: |
+        cd daily_prices
+        python generate_bitcoin_prices_kaggle.py
+    
+    - name: Check for changes
+      id: check_changes
+      run: |
+        git diff --exit-code data/daily_bitcoin_prices.csv || echo "changes=true" >> $GITHUB_OUTPUT
+    
+    - name: Commit and push changes
+      if: steps.check_changes.outputs.changes == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add data/daily_bitcoin_prices.csv
+        git commit -m "Update Bitcoin prices - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+        git push
