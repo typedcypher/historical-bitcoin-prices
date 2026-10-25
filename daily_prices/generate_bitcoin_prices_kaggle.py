@@ -10,6 +10,11 @@ from datetime import datetime
 import sys
 import kagglehub
 
+from kaggle_dataset_download import (
+    download_newest_available_version,
+    fetch_current_dataset_version,
+)
+
 # Define the supported currencies from the app
 SUPPORTED_CURRENCIES = [
     "USD",
@@ -41,13 +46,21 @@ def setup_kaggle_credentials():
     print("Kaggle credentials configured from environment variables")
 
 
+def download_kaggle_dataset(handle):
+    """Download the newest version of a Kaggle dataset that is actually available."""
+    current_version = fetch_current_dataset_version(handle)
+    return download_newest_available_version(
+        handle, current_version, kagglehub.dataset_download
+    )
+
+
 def load_bitcoin_data_from_kaggle():
     """Load Bitcoin price data from Kaggle dataset."""
     print("Loading Bitcoin data from Kaggle...")
 
     try:
         # Download the Bitcoin dataset
-        dataset_path = kagglehub.dataset_download("mczielinski/bitcoin-historical-data")
+        dataset_path = download_kaggle_dataset("mczielinski/bitcoin-historical-data")
         bitcoin_file = os.path.join(dataset_path, "btcusd_1-min_data.csv")
 
         if not os.path.exists(bitcoin_file):
@@ -127,7 +140,7 @@ def load_currency_data_from_kaggle():
 
     try:
         # Download the currency dataset
-        dataset_path = kagglehub.dataset_download(
+        dataset_path = download_kaggle_dataset(
             "usamabuttar/global-currency-historical-prices-updated-daily"
         )
         print(f"  Currency dataset downloaded to: {dataset_path}")
